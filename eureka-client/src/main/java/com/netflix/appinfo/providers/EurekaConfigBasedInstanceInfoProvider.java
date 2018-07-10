@@ -1,20 +1,15 @@
 package com.netflix.appinfo.providers;
 
-import javax.inject.Singleton;
-import javax.inject.Provider;
-import java.util.Map;
-
 import com.google.inject.Inject;
-import com.netflix.appinfo.DataCenterInfo;
-import com.netflix.appinfo.EurekaInstanceConfig;
-import com.netflix.appinfo.InstanceInfo;
+import com.netflix.appinfo.*;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.appinfo.InstanceInfo.PortType;
-import com.netflix.appinfo.LeaseInfo;
-import com.netflix.appinfo.RefreshableInstanceConfig;
-import com.netflix.appinfo.UniqueIdentifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.inject.Provider;
+import javax.inject.Singleton;
+import java.util.Map;
 
 /**
  * InstanceInfo provider that constructs the InstanceInfo this this instance using
@@ -46,19 +41,22 @@ public class EurekaConfigBasedInstanceInfoProvider implements Provider<InstanceI
     public synchronized InstanceInfo get() {
         if (instanceInfo == null) {
             // Build the lease information to be passed to the server based on config
+            // 采用构造器模式
+            // 租约信息  读取EurekaInstanceConfig配置中的相关配置
             LeaseInfo.Builder leaseInfoBuilder = LeaseInfo.Builder.newBuilder()
                     .setRenewalIntervalInSecs(config.getLeaseRenewalIntervalInSeconds())
                     .setDurationInSecs(config.getLeaseExpirationDurationInSeconds());
-
+             //虚拟地址解析器
             if (vipAddressResolver == null) {
                 vipAddressResolver = new Archaius1VipAddressResolver();
             }
-
+             //构造实例信息
             // Builder the instance information to be registered with eureka server
             InstanceInfo.Builder builder = InstanceInfo.Builder.newBuilder(vipAddressResolver);
 
             // set the appropriate id for the InstanceInfo, falling back to datacenter Id if applicable, else hostname
             String instanceId = config.getInstanceId();
+            //数据中心配置
             DataCenterInfo dataCenterInfo = config.getDataCenterInfo();
             if (instanceId == null || instanceId.isEmpty()) {
                 if (dataCenterInfo instanceof UniqueIdentifier) {
@@ -113,6 +111,7 @@ public class EurekaConfigBasedInstanceInfoProvider implements Provider<InstanceI
             }
 
             // Add any user-specific metadata information
+            //给服务实例添加元数据
             for (Map.Entry<String, String> mapEntry : config.getMetadataMap().entrySet()) {
                 String key = mapEntry.getKey();
                 String value = mapEntry.getValue();

@@ -16,52 +16,11 @@
 
 package com.netflix.discovery;
 
-import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRATION_PREFIX;
-import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRY_PREFIX;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-
-import javax.annotation.Nullable;
-import javax.annotation.PreDestroy;
-import javax.inject.Provider;
-import javax.inject.Singleton;
-import javax.ws.rs.core.Response.Status;
-
-import com.netflix.discovery.shared.transport.jersey.Jersey1DiscoveryClientOptionalArgs;
-import com.netflix.discovery.shared.transport.jersey.Jersey1TransportClientFactories;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.inject.Inject;
-import com.netflix.appinfo.ApplicationInfoManager;
-import com.netflix.appinfo.HealthCheckCallback;
-import com.netflix.appinfo.HealthCheckCallbackToHandlerBridge;
-import com.netflix.appinfo.HealthCheckHandler;
-import com.netflix.appinfo.InstanceInfo;
+import com.netflix.appinfo.*;
 import com.netflix.appinfo.InstanceInfo.ActionType;
 import com.netflix.appinfo.InstanceInfo.InstanceStatus;
 import com.netflix.discovery.endpoint.EndpointUtils;
@@ -69,19 +28,35 @@ import com.netflix.discovery.shared.Application;
 import com.netflix.discovery.shared.Applications;
 import com.netflix.discovery.shared.resolver.ClosableResolver;
 import com.netflix.discovery.shared.resolver.aws.ApplicationsResolver;
-import com.netflix.discovery.shared.transport.EurekaHttpClient;
-import com.netflix.discovery.shared.transport.EurekaHttpClientFactory;
-import com.netflix.discovery.shared.transport.EurekaHttpClients;
-import com.netflix.discovery.shared.transport.EurekaHttpResponse;
-import com.netflix.discovery.shared.transport.EurekaTransportConfig;
-import com.netflix.discovery.shared.transport.TransportClientFactory;
+import com.netflix.discovery.shared.transport.*;
 import com.netflix.discovery.shared.transport.jersey.EurekaJerseyClient;
+import com.netflix.discovery.shared.transport.jersey.Jersey1DiscoveryClientOptionalArgs;
+import com.netflix.discovery.shared.transport.jersey.Jersey1TransportClientFactories;
 import com.netflix.discovery.shared.transport.jersey.TransportClientFactories;
 import com.netflix.discovery.util.ThresholdLevelsMetric;
 import com.netflix.servo.annotations.DataSourceType;
 import com.netflix.servo.monitor.Counter;
 import com.netflix.servo.monitor.Monitors;
 import com.netflix.servo.monitor.Stopwatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import javax.annotation.PreDestroy;
+import javax.inject.Provider;
+import javax.inject.Singleton;
+import javax.ws.rs.core.Response.Status;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
+import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRATION_PREFIX;
+import static com.netflix.discovery.EurekaClientNames.METRIC_REGISTRY_PREFIX;
 
 /**
  * The class that is instrumental for interactions with <tt>Eureka Server</tt>.
@@ -298,7 +273,7 @@ public class DiscoveryClient implements EurekaClient {
     @Inject
     DiscoveryClient(ApplicationInfoManager applicationInfoManager, EurekaClientConfig config, AbstractDiscoveryClientOptionalArgs args,
                     Provider<BackupRegistry> backupRegistryProvider) {
-        if (args != null) {
+        if (args != null) {//初始化的时候为空
             this.healthCheckHandlerProvider = args.healthCheckHandlerProvider;
             this.healthCheckCallbackProvider = args.healthCheckCallbackProvider;
             this.eventListeners.addAll(args.getEventListeners());
@@ -308,13 +283,16 @@ public class DiscoveryClient implements EurekaClient {
             this.healthCheckHandlerProvider = null;
             this.preRegistrationHandler = null;
         }
-        
+        //保存服务实例信息
         this.applicationInfoManager = applicationInfoManager;
+        //获取服务实例信息
         InstanceInfo myInfo = applicationInfoManager.getInfo();
-
+         //保存eureka-client配置信息
         clientConfig = config;
         staticClientConfig = clientConfig;
+         //保存传输配置
         transportConfig = config.getTransportConfig();
+        //保存服务实例信息
         instanceInfo = myInfo;
         if (myInfo != null) {
             appPathIdentifier = instanceInfo.getAppName() + "/" + instanceInfo.getId();
@@ -328,7 +306,7 @@ public class DiscoveryClient implements EurekaClient {
         localRegionApps.set(new Applications());
 
         fetchRegistryGeneration = new AtomicLong(0);
-
+        //逗号分隔的区域列表，将为其提取eureka注册表信息。
         remoteRegionsToFetch = new AtomicReference<String>(clientConfig.fetchRegistryForRemoteRegions());
         remoteRegionsRef = new AtomicReference<>(remoteRegionsToFetch.get() == null ? null : remoteRegionsToFetch.get().split(","));
 
