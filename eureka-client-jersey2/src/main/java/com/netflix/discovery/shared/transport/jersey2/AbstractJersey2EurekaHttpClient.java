@@ -55,7 +55,7 @@ public abstract class AbstractJersey2EurekaHttpClient implements EurekaHttpClien
     private static final Logger logger = LoggerFactory.getLogger(AbstractJersey2EurekaHttpClient.class);
 
     protected final Client jerseyClient;
-    protected final String serviceUrl;
+    protected final String  serviceUrl;
     private final String userName;
     private final String password;
 
@@ -86,6 +86,12 @@ public abstract class AbstractJersey2EurekaHttpClient implements EurekaHttpClien
         String urlPath = "apps/" + info.getAppName();
         Response response = null;
         try {
+    /**
+    iceu白初心     发送请求 http://localhost:8080/v2/apps/ServiceA
+                   发送的是post请求 服务实例的对象打成了一个json发送了过去 包含自己的主机 IP 端口
+                   人家eureka server就知道serviceA 这个服务 有一个服务实例 比如在192.168.90.21 host-02 8899
+
+    */
             Builder resourceBuilder = jerseyClient.target(serviceUrl).path(urlPath).request();
             addExtraProperties(resourceBuilder);
             addExtraHeaders(resourceBuilder);

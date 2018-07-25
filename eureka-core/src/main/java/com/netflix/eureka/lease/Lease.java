@@ -59,8 +59,12 @@ public class Lease<T> {
      * associated {@link T} during registration, otherwise default duration is
      * {@link #DEFAULT_DURATION_IN_SECS}.
      */
+    /**
+    白初心  每次人家服务发送一次心跳 保持心跳 其实靠的就是这个lastupdateTimestamp
+    类似于最近一次活跃时间
+    */
     public void renew() {
-        lastUpdateTimestamp = System.currentTimeMillis() + duration;
+        lastUpdateTimestamp = System.currentTimeMillis() + duration;//默认90秒
 
     }
 
@@ -108,6 +112,25 @@ public class Lease<T> {
      * @param additionalLeaseMs any additional lease time to add to the lease evaluation in ms.
      */
     public boolean isExpired(long additionalLeaseMs) {
+        /**
+        白初心
+        不看补偿时间 假如说 当前时间比上次的心跳的时间差了 超过90s 说明90秒内 都没有
+        更新过心跳
+         说明那个服务实例在90秒内都没有更新过心跳
+         此时就认为那个实例可能已经宕机了
+         19点50分00秒 -> 如果到了 19:56:30 没有心跳 就该认为服务实例故障了
+         19:56:30 ->如果到了  还不会认为服务实例宕机了
+         19:58:01 -> 19:56:30+90s=19:58:00+92s =19:59:31s
+         差不多要到20:00:00 才认为这个服务实例会过期
+
+         你需要等待2个90秒之后都没有心跳 才会任务这个服务实例挂掉了 才会下线 90秒 180秒 三分钟没有心跳
+         才会认为这个服务实例宕机了 下线了
+         如果你没有看过源码 就会犯错
+         源码层面是由 bug的 90*2=180 才会服务下线
+         失效缓存注册表  30s才会同步 服务30s才会重新抓取增量注册表
+         一个服务挂了之后 可能要过几分钟 四五分钟 才能让其他服务感知到
+
+        */
         return (evictionTimestamp > 0 || System.currentTimeMillis() > (lastUpdateTimestamp + duration + additionalLeaseMs));
     }
 

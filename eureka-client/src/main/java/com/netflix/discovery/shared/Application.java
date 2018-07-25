@@ -64,7 +64,7 @@ public class Application {
 
     @XStreamOmitField
     private volatile boolean isDirty = false;
-
+//    ba
     @XStreamImplicit
     private final Set<InstanceInfo> instances;
 

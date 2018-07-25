@@ -141,6 +141,7 @@ public class ResponseCacheImpl implements ResponseCache {
                             }
                         })
                         .build(new CacheLoader<Key, Value>() {
+//                            TODO LoadCache ???
                             @Override
                             public Value load(Key key) throws Exception {
                                 if (key.hasRegions()) {
@@ -243,6 +244,7 @@ public class ResponseCacheImpl implements ResponseCache {
     public void invalidate(String appName, @Nullable String vipAddress, @Nullable String secureVipAddress) {
         for (Key.KeyType type : Key.KeyType.values()) {
             for (Version v : Version.values()) {
+//                g过期缓存key
                 invalidate(
                         new Key(Key.EntityType.Application, appName, type, v, EurekaAccept.full),
                         new Key(Key.EntityType.Application, appName, type, v, EurekaAccept.compact),

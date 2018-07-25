@@ -74,7 +74,8 @@ public class Applications {
 
     @XStreamImplicit
     private AbstractQueue<Application> applications;
-
+//    这里搞了好多种数据结构 就是让你可以通过appname 来获取一个Appliaction
+//    还可以根据虚拟主机名来获取Application
     private Map<String, Application> appNameApplicationMap = new ConcurrentHashMap<String, Application>();
     private Map<String, AbstractQueue<InstanceInfo>> virtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();
     private Map<String, AbstractQueue<InstanceInfo>> secureVirtualHostNameAppMap = new ConcurrentHashMap<String, AbstractQueue<InstanceInfo>>();

@@ -190,7 +190,9 @@ public class EurekaBootStrap implements ServletContextListener {
                     eurekaClient
             );
         }
-
+        /**
+        白初心iceu 第四步 处理peer节点相关的事情 代表了 eureka的集群
+        */
         PeerEurekaNodes peerEurekaNodes = getPeerEurekaNodes(
                 registry,
                 eurekaServerConfig,
@@ -198,7 +200,9 @@ public class EurekaBootStrap implements ServletContextListener {
                 serverCodecs,
                 applicationInfoManager
         );
-
+          /**
+          白初心iceu 第五步 完成eurekaserver上下文的构建以及初始化
+          */
         serverContext = new DefaultEurekaServerContext(
                 eurekaServerConfig,
                 serverCodecs,
@@ -213,10 +217,19 @@ public class EurekaBootStrap implements ServletContextListener {
         logger.info("Initialized server context");
 
         // Copy registry from neighboring eureka node
+        /**
+        白初心 第六步 处理善后的事情 从相邻的eureka节点拷贝注册信息
+        */
         int registryCount = registry.syncUp();
+        /**
+        白初心  这个方法写的非常不好 打开注册表 可以接受请求
+        */
         registry.openForTraffic(applicationInfoManager, registryCount);
 
         // Register all monitoring statistics.
+        /**
+        白初心iceu  处理一点善后的事情 注册所有的监控统计项
+        */
         EurekaMonitors.registerAllStats();
     }
     

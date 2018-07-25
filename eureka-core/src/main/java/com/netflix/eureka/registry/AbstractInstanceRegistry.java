@@ -277,6 +277,9 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             registrant.setActionType(ActionType.ADDED);
             recentlyChangedQueue.add(new RecentlyChangedItem(lease));
             registrant.setLastUpdatedTimestamp();
+//            抓大放小 很多代码细节中  你第一次看到的时候 都是不懂得
+//            你如果来看服务注册的时候 看到这行代码  蒙圈的  invalidateCache
+//            z抓取注册表的时候  会走多级缓存机制 思考 服务实例注册信息发生变化的时候  要刷新缓存
             invalidateCache(registrant.getAppName(), registrant.getVIPAddress(), registrant.getSecureVipAddress());
             logger.info("Registered instance {}/{} with status {} (replication={})",
                     registrant.getAppName(), registrant.getId(), registrant.getStatus(), isReplication);
@@ -316,6 +319,9 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             Map<String, Lease<InstanceInfo>> gMap = registry.get(appName);
             Lease<InstanceInfo> leaseToCancel = null;
             if (gMap != null) {
+                /**
+                白初心 将服务实例从eureka-server中的map结构中的注册表移除掉
+                */
                 leaseToCancel = gMap.remove(id);
             }
             synchronized (recentCanceledQueue) {
@@ -330,17 +336,33 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 logger.warn("DS: Registry: cancel failed because Lease is not registered for: {}/{}", appName, id);
                 return false;
             } else {
+                /**
+                白初心iceu 调用Lease的cancel()的方法
+                */
+                
                 leaseToCancel.cancel();
                 InstanceInfo instanceInfo = leaseToCancel.getHolder();
                 String vip = null;
                 String svip = null;
                 if (instanceInfo != null) {
+                    /**
+                    白初心iceu 将服务实例信息扔到最近改变的队列中去了 
+                    */
                     instanceInfo.setActionType(ActionType.DELETED);
                     recentlyChangedQueue.add(new RecentlyChangedItem(leaseToCancel));
-                    instanceInfo.setLastUpdatedTimestamp();
+                    instanceInfo.setLastUpdatedTimestamp();//设置了服务实例最后更新时间
                     vip = instanceInfo.getVIPAddress();
                     svip = instanceInfo.getSecureVipAddress();
+
+                    /**
+                    白初心iceu 服务注册 下线 故障摘除  都会放入到最近改变的队列中
+                     这个最近改变的队列只会保留最近三分钟的服务实例
+                     所以eureka client在增量拉取注册表的时候只会拉取3分钟之内的
+                    */
                 }
+                /**
+                白初心  过期掉这个注册表缓存
+                */
                 invalidateCache(appName, vip, svip);
                 logger.info("Cancelled instance {}/{} (replication={})", appName, id, isReplication);
                 return true;
@@ -357,6 +379,9 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
      * @see com.netflix.eureka.lease.LeaseManager#renew(java.lang.String, java.lang.String, boolean)
      */
     public boolean renew(String appName, String id, boolean isReplication) {
+        /**
+        iceu白初心 统计次数
+        */
         RENEW.increment(isReplication);
         Map<String, Lease<InstanceInfo>> gMap = registry.get(appName);
         Lease<InstanceInfo> leaseToRenew = null;
@@ -595,7 +620,10 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
 
     public void evict(long additionalLeaseMs) {
         logger.debug("Running the evict task");
-
+        /**
+        白初心iceu 基于配置 是否允许主动过期 这边跟自我保护机制相关 后面再看
+        默认为true
+        */
         if (!isLeaseExpirationEnabled()) {
             logger.debug("DS: lease expiration is currently disabled.");
             return;
@@ -610,6 +638,10 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             if (leaseMap != null) {
                 for (Entry<String, Lease<InstanceInfo>> leaseEntry : leaseMap.entrySet()) {
                     Lease<InstanceInfo> lease = leaseEntry.getValue();
+                    /**
+                    白初心iceu  对每个服务实例的租约判断一下 如果服务实例上一次的
+                     心跳时间到现在为止 超过了90*2=180秒 才会认为过期了 故障了
+                    */
                     if (lease.isExpired(additionalLeaseMs) && lease.getHolder() != null) {
                         expiredLeases.add(lease);
                     }
@@ -619,14 +651,28 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
 
         // To compensate for GC pauses or drifting local time, we need to use current registry size as a base for
         // triggering self-preservation. Without that we would wipe out full registry.
+      /**
+      白初心iceu 不能一次性摘除过多实例
+       假设现在有20个服务实例 有6个服务实例不可用了  一次性可以摘除的服务实例是有限制的
+      */
+        /**
+         * 获取当前服务实例个数registry=20
+         */
         int registrySize = (int) getLocalRegistrySize();
+//        20*0.85=17个
         int registrySizeThreshold = (int) (registrySize * serverConfig.getRenewalPercentThreshold());
+//        20-17=3
         int evictionLimit = registrySize - registrySizeThreshold;
-
+//        toEvict=3
         int toEvict = Math.min(expiredLeases.size(), evictionLimit);
+
+
         if (toEvict > 0) {
             logger.info("Evicting {} items (expired={}, evictionLimit={})", toEvict, expiredLeases.size(), evictionLimit);
-
+         /**
+         白初心iceu  当前要摘除的服务实例是6个 但是最多只能摘除3个
+          下面的代码 就是会随机选择三个服务实例来摘除
+         */
             Random random = new Random(System.currentTimeMillis());
             for (int i = 0; i < toEvict; i++) {
                 // Pick a random item (Knuth shuffle algorithm)
@@ -969,6 +1015,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
         Map<String, Application> applicationInstancesMap = new HashMap<String, Application>();
         try {
             write.lock();
+//            最近三分钟内有变化的服务实例的注册表 增量注册表
             Iterator<RecentlyChangedItem> iter = this.recentlyChangedQueue.iterator();
             logger.debug("The number of elements in the delta queue is :" + this.recentlyChangedQueue.size());
             while (iter.hasNext()) {
@@ -1262,6 +1309,9 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
         @Override
         public void run() {
             try {
+                /**
+                白初心iceu 获取补偿时间
+                */
                 long compensationTimeMs = getCompensationTimeMs();
                 logger.info("Running the evict task with compensationTime {}ms", compensationTimeMs);
                 evict(compensationTimeMs);
@@ -1277,13 +1327,34 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
          * according to the configured cycle.
          */
         long getCompensationTimeMs() {
-            long currNanos = getCurrentTimeNano();
+            /**
+             * 一般都是60s调度一次  但是可能由于jvm gc 夯住了 或者机器时钟的问题 可能超过60s 才执行
+             * 20:02:32才过来执行
+             */
+//            下一次又过来了 又执行了 20:01：00
+            long currNanos = getCurrentTimeNano();//获取当前时间
+            /**
+            白初心iceu 获取上一次Evictiontask被执行的时间第一次就是0 
+             将当前时间设置到AtomicLong中
+             假设 此时是20:00:00 将20：00:00设置到lsatExecutionNanosRef中
+
+             将20:02:32设置到lastExecutionNamosRef中
+             
+            */
+            
             long lastNanos = lastExecutionNanosRef.getAndSet(currNanos);
             if (lastNanos == 0l) {
                 return 0l;
             }
-
+            /**
+            白初心 20:01:00-20:00:00=60s
+             20:0232-20:00:00=152s
+            */
             long elapsedMs = TimeUnit.NANOSECONDS.toMillis(currNanos - lastNanos);
+            /**
+             * 60s - 配置的60s=0s
+             * 152s-60=92s 相当于晚了92s
+             */
             long compensationTime = elapsedMs - serverConfig.getEvictionIntervalTimerInMs();
             return compensationTime <= 0l ? 0l : compensationTime;
         }
@@ -1340,7 +1411,10 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             public void run() {
                 Iterator<RecentlyChangedItem> it = recentlyChangedQueue.iterator();
                 while (it.hasNext()) {
-                    if (it.next().getLastUpdateTime() <
+                    /**
+                    白初心  进入队列的时间
+                    */
+                    if (it.next().getLastUpdateTime() <//180s 三分钟  
                             System.currentTimeMillis() - serverConfig.getRetentionTimeInMSInDeltaQueue()) {
                         it.remove();
                     } else {
