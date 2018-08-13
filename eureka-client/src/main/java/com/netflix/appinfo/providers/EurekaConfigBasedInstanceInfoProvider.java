@@ -42,11 +42,11 @@ public class EurekaConfigBasedInstanceInfoProvider implements Provider<InstanceI
         if (instanceInfo == null) {
             // Build the lease information to be passed to the server based on config
             // 采用构造器模式
-            // 租约信息  读取EurekaInstanceConfig配置中的相关配置
+            // 租约信息  读取EurekaInstanceConfig配置中的相关配置 设置属性
             LeaseInfo.Builder leaseInfoBuilder = LeaseInfo.Builder.newBuilder()
                     .setRenewalIntervalInSecs(config.getLeaseRenewalIntervalInSeconds())
                     .setDurationInSecs(config.getLeaseExpirationDurationInSeconds());
-             //虚拟地址解析器
+             //虚拟地址解析器 创建VIP解析器
             if (vipAddressResolver == null) {
                 vipAddressResolver = new Archaius1VipAddressResolver();
             }
@@ -54,6 +54,8 @@ public class EurekaConfigBasedInstanceInfoProvider implements Provider<InstanceI
             // Builder the instance information to be registered with eureka server
             InstanceInfo.Builder builder = InstanceInfo.Builder.newBuilder(vipAddressResolver);
 
+
+//            应用实例编号
             // set the appropriate id for the InstanceInfo, falling back to datacenter Id if applicable, else hostname
             String instanceId = config.getInstanceId();
             //数据中心配置

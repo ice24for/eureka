@@ -146,15 +146,41 @@ public class EurekaBootStrap implements ServletContextListener {
         EurekaServerConfig eurekaServerConfig = new DefaultEurekaServerConfig();
 
         // For backward compatibility
+        /**
+         *
+         *    2018/8/8-17:12白初心Administrator eureka-server请求和响应的数据兼容
+         *    目前eurekaserver提供V2api 主要是用来对V1版本做兼容
+         *
+         *
+         */
         JsonXStream.getInstance().registerConverter(new V1AwareInstanceInfoConverter(), XStream.PRIORITY_VERY_HIGH);
         XmlXStream.getInstance().registerConverter(new V1AwareInstanceInfoConverter(), XStream.PRIORITY_VERY_HIGH);
 
         logger.info("Initializing the eureka client...");
         logger.info(eurekaServerConfig.getJsonCodecName());
+        /**
+         *
+         *    2018/8/8-17:14白初心Administrator 请求和响应编解码器
+         *
+         *
+         */
         ServerCodecs serverCodecs = new DefaultServerCodecs(eurekaServerConfig);
         //第二步 初始化ApplicationInfoManager 服务实例管理器
+  /**
+   *
+   *    2018/8/8-17:24白初心Administrator
+   *      创建eureka-client
+   *
+   *
+   */
         ApplicationInfoManager applicationInfoManager = null;
-        //第三步 初始化eureka-server 中内部的eureka-client
+/**
+ *
+ *    2018/8/8-17:25白初心Administrator
+ *    第三步 初始化eureka-server 中内部的eureka-client
+ *    eureka-server 依赖eureka-client 进行集群同步注册 所以需要初始化
+ *
+ */
         if (eurekaClient == null) {
             //云实例配置  数据中心配置
             EurekaInstanceConfig instanceConfig = isCloud(ConfigurationManager.getDeploymentContext())
@@ -171,9 +197,14 @@ public class EurekaBootStrap implements ServletContextListener {
         } else {
             applicationInfoManager = eurekaClient.getApplicationInfoManager();
         }
-
+         /**
+          *
+          *    2018/8/8-17:24白初心Administrator
+          *    创建应用对象的注册表
+          *
+          */
         PeerAwareInstanceRegistry registry;
-        if (isAws(applicationInfoManager.getInfo())) {
+        if (isAws(applicationInfoManager.getInfo())) {//是否是云环境
             registry = new AwsInstanceRegistry(
                     eurekaServerConfig,
                     eurekaClient.getEurekaClientConfig(),
@@ -191,7 +222,7 @@ public class EurekaBootStrap implements ServletContextListener {
             );
         }
         /**
-        白初心iceu 第四步 处理peer节点相关的事情 代表了 eureka的集群
+        白初心iceu 第四步 处理peer节点相关的事情 代表了 eureka的集群 集群节点集合
         */
         PeerEurekaNodes peerEurekaNodes = getPeerEurekaNodes(
                 registry,
@@ -210,7 +241,12 @@ public class EurekaBootStrap implements ServletContextListener {
                 peerEurekaNodes,
                 applicationInfoManager
         );
-
+        /**
+         *
+         *    2018/8/8-17:22白初心Administrator
+         *    初始化 EurekaServerContextHolder
+         *
+         */
         EurekaServerContextHolder.initialize(serverContext);
 
         serverContext.initialize();
@@ -230,7 +266,7 @@ public class EurekaBootStrap implements ServletContextListener {
         /**
         白初心iceu  处理一点善后的事情 注册所有的监控统计项
         */
-        EurekaMonitors.registerAllStats();
+            EurekaMonitors.registerAllStats();
     }
     
     protected PeerEurekaNodes getPeerEurekaNodes(PeerAwareInstanceRegistry registry, EurekaServerConfig eurekaServerConfig, EurekaClientConfig eurekaClientConfig, ServerCodecs serverCodecs, ApplicationInfoManager applicationInfoManager) {
