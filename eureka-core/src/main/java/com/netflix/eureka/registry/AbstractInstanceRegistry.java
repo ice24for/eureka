@@ -383,9 +383,11 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
         iceu白初心 统计次数
         */
         RENEW.increment(isReplication);
+        //获取注册表中服务对应的服务所有实例
         Map<String, Lease<InstanceInfo>> gMap = registry.get(appName);
         Lease<InstanceInfo> leaseToRenew = null;
         if (gMap != null) {
+            //获取 服务id对应的是咧
             leaseToRenew = gMap.get(id);
         }
         if (leaseToRenew == null) {
@@ -393,6 +395,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
             logger.warn("DS: Registry: lease doesn't exist, registering resource: {} - {}", appName, id);
             return false;
         } else {
+            //获取实例信息
             InstanceInfo instanceInfo = leaseToRenew.getHolder();
             if (instanceInfo != null) {
                 // touchASGCache(instanceInfo.getASGName());
@@ -932,6 +935,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
         Map<String, Application> applicationInstancesMap = new HashMap<String, Application>();
         try {
             write.lock();
+            //最近三分钟 改变的队列
             Iterator<RecentlyChangedItem> iter = this.recentlyChangedQueue.iterator();
             logger.debug("The number of elements in the delta queue is :"
                     + this.recentlyChangedQueue.size());
@@ -1167,7 +1171,12 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
         }
         return list;
     }
-
+ /**
+  *
+  *    2018/8/14-16:49白初心Administrator 装饰InstanceInfo
+  *
+  *
+  */
     private InstanceInfo decorateInstanceInfo(Lease<InstanceInfo> lease) {
         InstanceInfo info = lease.getHolder();
 
@@ -1412,7 +1421,7 @@ public abstract class AbstractInstanceRegistry implements InstanceRegistry {
                 Iterator<RecentlyChangedItem> it = recentlyChangedQueue.iterator();
                 while (it.hasNext()) {
                     /**
-                    白初心  进入队列的时间
+                    白初心    进入队列的时间
                     */
                     if (it.next().getLastUpdateTime() <//180s 三分钟  
                             System.currentTimeMillis() - serverConfig.getRetentionTimeInMSInDeltaQueue()) {

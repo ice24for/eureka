@@ -119,7 +119,7 @@ public class InstanceResource {
         // Check if we need to sync based on dirty time stamp, the client
         // instance might have changed some value
         Response response = null;
-        if (lastDirtyTimestamp != null && serverConfig.shouldSyncWhenTimestampDiffers()) {
+        if (lastDirtyTimestamp != null && serverConfig.shouldSyncWhenTimestampDiffers()) {//true
             response = this.validateDirtyTimestamp(Long.valueOf(lastDirtyTimestamp), isFromReplicaNode);
             // Store the overridden status since the validation found out the node that replicates wins
             if (response.getStatus() == Response.Status.NOT_FOUND.getStatusCode()
@@ -295,16 +295,32 @@ public class InstanceResource {
                                             boolean isReplication) {
         InstanceInfo appInfo = registry.getInstanceByAppAndId(app.getName(), id, false);
         if (appInfo != null) {
-            if ((lastDirtyTimestamp != null) && (!lastDirtyTimestamp.equals(appInfo.getLastDirtyTimestamp()))) {
+            if ((lastDirtyTimestamp != null) && (!lastDirtyTimestamp.equals(appInfo.getLastDirtyTimestamp()))) { //true &&true
                 Object[] args = {id, appInfo.getLastDirtyTimestamp(), lastDirtyTimestamp, isReplication};
 
                 if (lastDirtyTimestamp > appInfo.getLastDirtyTimestamp()) {
+                    /**
+                     *
+                     *    2018/8/14-19:38白初心Administrator
+                     *    请求的 lastDirtyTimestamp 较大，意味着请求方( 可能是 Eureka-Client ，
+                     *    也可能是 Eureka-Server 集群内的其他 Server )存在
+                     *    InstanceInfo 和 Eureka-Server 的 InstanceInfo 的数据不一致，
+                     *    返回 404 响应。请求方收到 404 响应后重新发起注册。
+                     *
+                     */
                     logger.debug(
                             "Time to sync, since the last dirty timestamp differs -"
                                     + " ReplicationInstance id : {},Registry : {} Incoming: {} Replication: {}",
                             args);
                     return Response.status(Status.NOT_FOUND).build();
                 } else if (appInfo.getLastDirtyTimestamp() > lastDirtyTimestamp) {
+                    /**
+                     *
+                     *    2018/8/14-19:41白初心Administrator
+                     *    Server 的 lastDirtyTimestamp 较大，并且请求方为 Eureka-Client，续租成功，返回 200 成功响应。
+                     *
+                     *
+                     */
                     // In the case of replication, send the current instance info in the registry for the
                     // replicating node to sync itself with this one.
                     if (isReplication) {
